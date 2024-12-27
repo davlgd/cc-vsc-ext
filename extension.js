@@ -35,10 +35,23 @@ async function activate(context) {
 		if (currentWebview) {
 			currentWebview.webview.html = `
 				<style>
-					body { padding: 15px; font-family: var(--vscode-font-family); }
+					body {
+						padding: 15px;
+						font-family: var(--vscode-font-family);
+						display: flex;
+						justify-content: center;
+					}
 					button {
+						background-color: var(--vscode-button-background);
+						color: var(--vscode-button-foreground);
+						border: none;
 						padding: 8px 16px;
-						margin: 10px 0;
+						border-radius: 4px;
+						cursor: pointer;
+						font-size: 14px;
+					}
+					button:hover {
+						background-color: var(--vscode-button-hoverBackground);
 					}
 				</style>
 				<button onclick="selectApp()">Select an application</button>
@@ -72,22 +85,132 @@ async function activate(context) {
 	// Fonction pour afficher une application spécifique
 	async function displayApplication(appId) {
 		try {
+			console.log('Fetching application data for ID:', appId);
 			const appData = await getApplication(appId);
-			let html = '<table style="width:100%">';
-			for (const [key, value] of Object.entries(appData)) {
-				html += `
-					<tr>
-						<td style="padding:8px;border-bottom:1px solid #ccc"><strong>${key}</strong></td>
-						<td style="padding:8px;border-bottom:1px solid #ccc">${JSON.stringify(value)}</td>
-					</tr>`;
+
+			if (!appData) {
+				throw new Error('No application data received');
 			}
-			html += '</table>';
+
+			console.log('Received application data:', appData);
+
+			// Vérification des propriétés requises
+			if (!appData.instance || !appData.instance.variant) {
+				throw new Error('Invalid application data structure');
+			}
+
+			// Grouper les données par catégories
+			const basicInfo = {
+				'Application Name': appData.name,
+				'Description': appData.description || 'No description',
+				'Zone': appData.zone,
+				'Status': appData.state,
+				'Branch': appData.branch
+			};
+
+			const deployment = {
+				'Deploy URL': appData.deployUrl,
+				'Last Deploy': new Date(appData.creationDate).toLocaleString(),
+				'Commit ID': appData.commitId?.substring(0, 7) || 'N/A'
+			};
+
+			// Formater les données de l'instance
+			const instanceInfo = {
+				'Type': appData.instance.type,
+				 'Variant': appData.instance.variant.slug, // Modification ici pour n'afficher que le slug
+				'Version': appData.instance.version,
+				'Min Instances': appData.instance.minInstances,
+				'Max Instances': appData.instance.maxInstances
+			};
+
+			// Formater les données du flavor actuel avec 4 décimales pour le prix
+			const currentFlavor = appData.instance.minFlavor;
+			const flavorInfo = {
+				'Size': currentFlavor.name,
+				'CPU': `${currentFlavor.cpus} CPUs`,
+				'Memory': currentFlavor.memory.formatted,
+				'Price': `${currentFlavor.price.toFixed(4)}€/hour`
+			};
+
+			const domains = appData.vhosts?.map(vh => vh.fqdn) || [];
+			const environment = appData.env?.map(e => `${e.name}=${e.value}`) || [];
+
+			let html = `
+				<link rel="stylesheet" type="text/css" href="${currentWebview.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'assets', 'styles.css')))}">
+
+				<div class="section">
+					<div class="section-title">Basic Information</div>
+					<div class="info-grid">
+						${Object.entries(basicInfo).map(([key, value]) => `
+							<div class="label">${key}:</div>
+							<div class="value">${value}</div>
+						`).join('')}
+					</div>
+				</div>
+
+				<div class="section">
+					<div class="section-title">Instance Configuration</div>
+					<div class="info-grid">
+						${Object.entries(instanceInfo).map(([key, value]) => `
+							<div class="label">${key}:</div>
+							<div class="value">${value}</div>
+						`).join('')}
+					</div>
+					<div class="instance-details">
+						<div class="section-title">Current Flavor</div>
+						<div class="instance-flavor">
+							${Object.entries(flavorInfo).map(([key, value]) => `
+								<div class="flavor-card">
+									<div class="label">${key}</div>
+									<div class="value">${value}</div>
+								</div>
+							`).join('')}
+						</div>
+					</div>
+				</div>
+
+				<div class="section">
+					<div class="section-title">Deployment</div>
+					<div class="info-grid">
+						${Object.entries(deployment).map(([key, value]) => `
+							<div class="label">${key}:</div>
+							<div class="value">${value}</div>
+						`).join('')}
+					</div>
+				</div>
+
+				${domains.length ? `
+					<div class="section">
+						<div class="section-title">Domains</div>
+						${domains.map(domain => `
+							<a href="https://${domain}" class="domain-link" target="_blank">${domain}</a>
+						`).join('<br>')}
+					</div>
+				` : ''}
+
+				${environment.length ? `
+					<div class="section">
+						<div class="section-title">Environment Variables</div>
+						<div class="env-grid">
+							${environment.map(env => {
+								const [name, value] = env.split('=');
+								return `
+									<div class="env-var">
+										<span class="env-name">${name}</span>
+										<span class="env-value">${value}</span>
+									</div>`;
+							}).join('')}
+						</div>
+					</div>
+				` : ''}
+			`;
 
 			if (currentWebview) {
 				currentWebview.webview.html = html;
 			}
 		} catch (error) {
-			vscode.window.showErrorMessage('Failed to load application data');
+			console.error('Error in displayApplication:', error);
+			vscode.window.showErrorMessage(`Failed to load application data: ${error.message}`);
 			showSelectionButton();
 		}
 	}

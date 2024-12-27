@@ -1,0 +1,112 @@
+body {
+    padding: 15px;
+    font-family: var(--vscode-font-family);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Styles pour le bouton de sélection */
+.select-button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.select-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Styles pour les sections */
+.section {
+    margin-bottom: 20px;
+    background: var(--vscode-editor-background);
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: var(--vscode-editor-foreground);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+}
+
+.label {
+    font-weight: bold;
+    color: var(--vscode-textPreformat-foreground);
+}
+
+.value {
+    color: var(--vscode-editor-foreground);
+    word-break: break-word;
+}
+
+.list-item {
+    padding: 4px 0;
+}
+
+/* Styles pour les détails de l'instance */
+.instance-details {
+    margin-top: 8px;
+}
+
+.instance-flavor {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.flavor-card {
+    background: var(--vscode-editor-background);
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-widget-border);
+}
+
+.domain-link {
+    color: var(--vscode-textLink-foreground);
+    text-decoration: none;
+}
+
+.domain-link:hover {
+    text-decoration: underline;
+}
+
+.env-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.env-var {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    font-family: var(--vscode-editor-font-family);
+    background: var(--vscode-textBlockQuote-background);
+    padding: 8px;
+    border-radius: 2px;
+    align-items: center;
+}
+
+.env-name {
+    font-weight: bold;
+    color: var(--vscode-textPreformat-foreground);
+    white-space: nowrap;
+}
+
+.env-value {
+    color: var(--vscode-editor-foreground);
+    word-break: break-all;
+    overflow-wrap: break-word;
+}
