@@ -12,10 +12,39 @@
   "activationEvents": [],
   "main": "./extension.js",
   "contributes": {
-    "commands": [{
-      "command": "clever-code.helloWorld",
-      "title": "Hello World"
-    }]
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "clever-code",
+          "title": "Clever Cloud",
+          "icon": "assets/clevercloud.svg"
+        }
+      ]
+    },
+    "views": {
+      "clever-code": [
+        {
+          "type": "webview",
+          "id": "ccApp",
+          "name": "Clever Cloud Application",
+          "contextualTitle": "Application Details"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "clever-code.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "clever-code.applications",
+        "title": "Applications"
+      },
+      {
+        "command": "clever-code.profile",
+        "title": "Show Clever Cloud Profile Information"
+      }
+    ]
   },
   "scripts": {
     "lint": "eslint .",
@@ -23,11 +52,14 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.96.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
-    "eslint": "^9.16.0",
+    "@types/vscode": "^1.96.0",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.16.0"
+  },
+  "dependencies": {
+    "@clevercloud/client": "^9.1.0"
   }
 }
