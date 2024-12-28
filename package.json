@@ -67,6 +67,10 @@
       {
         "command": "clever-code.login",
         "title": "Clever Cloud: login"
+      },
+      {
+        "command": "clever-code.ssh",
+        "title": "Clever Cloud: SSH to an application"
       }
     ]
   },

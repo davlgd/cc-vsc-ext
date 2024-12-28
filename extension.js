@@ -17,6 +17,9 @@ const execAsync = util.promisify(exec);
  */
 async function activate(context) {
 
+	// Ajouter au début de la fonction activate
+	let logsTerminal;
+
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "clever-code" is now active!');
@@ -285,6 +288,17 @@ async function activate(context) {
 								vscode.window.showInformationMessage(
 									`Application ${message.useCache ? 'restarted' : 'rebuilt'} successfully`
 								);
+								// Vérifier clever-tools et afficher les logs
+								try {
+									await execAsync('clever version');
+									if (!logsTerminal) {
+										logsTerminal = vscode.window.createTerminal('Clever Cloud Logs');
+									}
+									logsTerminal.show();
+									logsTerminal.sendText(`clever logs --app ${message.appId}`);
+								} catch (error) {
+									vscode.window.showErrorMessage('Install Clever Tools to view logs');
+								}
 								await displayApplication(message.appId);
 								break;
 							case 'stop':
@@ -464,9 +478,16 @@ async function activate(context) {
 		try {
 			// Vérifier Node.js
 			try {
-				await execAsync('node --version');
+				await execAsync('noe --version');
 			} catch (error) {
-				vscode.window.showErrorMessage('Install Node.js to install Clever Tools');
+				const answer = await vscode.window.showInformationMessage(
+					'Node.js is not installed on this machine. Do you want to see manual Clever Tools setup instructions?',
+					'Yes', 'No'
+				);
+
+				if (answer && answer.toLowerCase() === 'yes') {
+					vscode.env.openExternal(vscode.Uri.parse('https://github.com/CleverCloud/clever-tools?tab=readme-ov-file#installation'));
+				}
 				return;
 			}
 
@@ -516,6 +537,32 @@ async function activate(context) {
 		}
 	});
 
+	const ssh = vscode.commands.registerCommand('clever-code.ssh', async () => {
+		try {
+			// Vérifier que clever-tools est installé
+			await execAsync('clever version');
+
+			// Récupérer la liste des applications
+			const apps = await getApplications();
+			const appNames = apps.map(app => app.name);
+
+			// Demander à l'utilisateur de sélectionner une application
+			const selectedApp = await vscode.window.showQuickPick(appNames, {
+				placeHolder: 'Select an application to connect to'
+			});
+
+			if (selectedApp) {
+				const selectedAppId = apps.find(app => app.name === selectedApp).id;
+				// Créer un terminal et exécuter la commande SSH
+				const terminal = vscode.window.createTerminal('Clever Cloud SSH');
+				terminal.sendText(`clever ssh --app ${selectedAppId}`);
+				terminal.show();
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage('Install Clever Tools to use SSH connection');
+		}
+	});
+
 	context.subscriptions.push(
 		hello,
 		applications,
@@ -525,7 +572,8 @@ async function activate(context) {
 		openConsole,
 		openProfile,
 		openDoc,
-		login
+		login,
+		ssh
 	);
 }
 
