@@ -110,3 +110,39 @@ body {
     word-break: break-all;
     overflow-wrap: break-word;
 }
+
+.control-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.control-button {
+    flex: 1;
+    min-width: 80px;
+    max-width: 120px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.control-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.control-button.warning {
+    background-color: var(--vscode-inputValidation-warningBackground);
+    color: var(--vscode-inputValidation-warningForeground);
+}
+
+.control-button.danger {
+    background-color: var(--vscode-inputValidation-errorBackground);
+    color: var(--vscode-inputValidation-errorForeground);
+}

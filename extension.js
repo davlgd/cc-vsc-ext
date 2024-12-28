@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 const { getUserData, isLogged } = require('./models/user.js');
-const { getApplication, getApplications } = require('./models/applications.js');
+const { getApplication, getApplications, restartApplication, stopApplication } = require('./models/applications.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -135,11 +135,45 @@ async function activate(context) {
 			const domains = appData.vhosts?.map(vh => vh.fqdn) || [];
 			const environment = appData.env?.map(e => `${e.name}=${e.value}`) || [];
 
+			// Ajouter les boutons de contrôle selon l'état de l'application
+			const controlButtons = (() => {
+				if (appData.state === "WANTS_TO_BE_UP") {
+					return `
+						<div class="control-buttons">
+							<button onclick="refreshStatus()" class="control-button">
+								Refresh status
+							</button>
+						</div>
+					`;
+				}
+
+				if (appData.state === "SHOULD_BE_UP" || appData.state === "SHOULD_BE_DOWN") {
+					return `
+						<div class="control-buttons">
+							<button onclick="sendCommand('restart', true)" class="control-button">
+								Restart
+							</button>
+							<button onclick="sendCommand('restart', false)" class="control-button warning">
+								Rebuild
+							</button>
+							${appData.state === "SHOULD_BE_UP" ? `
+								<button onclick="sendCommand('stop')" class="control-button danger">
+									Stop
+								</button>
+							` : ''}
+						</div>
+					`;
+				}
+
+				return '';
+			})();
+
 			let html = `
 				<link rel="stylesheet" type="text/css" href="${currentWebview.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'assets', 'styles.css')))}">
 
 				<div class="section">
 					<div class="section-title">Basic Information</div>
+					${controlButtons}
 					<div class="info-grid">
 						${Object.entries(basicInfo).map(([key, value]) => `
 							<div class="label">${key}:</div>
@@ -203,11 +237,54 @@ async function activate(context) {
 						</div>
 					</div>
 				` : ''}
+
+				<script>
+					const vscode = acquireVsCodeApi();
+					function sendCommand(action, useCache) {
+						vscode.postMessage({
+							command: action,
+							appId: '${appId}',
+							useCache: useCache
+						});
+						}
+					function refreshStatus() {
+						vscode.postMessage({
+							command: 'refresh',
+							appId: '${appId}'
+						});
+					}
+				</script>
 			`;
 
 			if (currentWebview) {
 				currentWebview.webview.html = html;
+
+				// Ajouter les gestionnaires d'événements pour les boutons
+				currentWebview.webview.onDidReceiveMessage(async message => {
+					try {
+						switch (message.command) {
+							case 'refresh':
+								await displayApplication(message.appId);
+								break;
+							case 'restart':
+								await restartApplication(message.appId, message.useCache);
+								vscode.window.showInformationMessage(
+									`Application ${message.useCache ? 'restarted' : 'rebuilt'} successfully`
+								);
+								await displayApplication(message.appId);
+								break;
+							case 'stop':
+								await stopApplication(message.appId);
+								vscode.window.showInformationMessage('Application stopped successfully');
+								await displayApplication(message.appId);
+								break;
+						}
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to ${message.command} application: ${error.message}`);
+					}
+				});
 			}
+
 		} catch (error) {
 			console.error('Error in displayApplication:', error);
 			vscode.window.showErrorMessage(`Failed to load application data: ${error.message}`);
@@ -218,7 +295,7 @@ async function activate(context) {
 	// Fonction pour gérer les applications locales
 	async function handleLocalApps() {
 		const config = readLocalConfig();
-		if (!config || !config.apps || config.apps.length === 0) {
+		if (!config || !config.apps || !config.apps.length === 0) {
 			return false;
 		}
 
