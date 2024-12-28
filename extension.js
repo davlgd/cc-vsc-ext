@@ -2,9 +2,12 @@
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
 const { getUserData, isLogged } = require('./models/user.js');
-const { getApplication, getApplications, restartApplication, stopApplication } = require('./models/applications.js');
+const { getApplication, getApplications, restartApplication, stopApplication, createApplication, getTypes, getZones, deleteApplication } = require('./models/applications.js');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -170,7 +173,6 @@ async function activate(context) {
 
 			let html = `
 				<link rel="stylesheet" type="text/css" href="${currentWebview.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'assets', 'styles.css')))}">
-
 				<div class="section">
 					<div class="section-title">Basic Information</div>
 					${controlButtons}
@@ -238,6 +240,11 @@ async function activate(context) {
 					</div>
 				` : ''}
 
+				<div class="section danger-zone">
+					<div class="section-title">Danger Zone</div>
+					<button onclick="deleteApp()" class="control-button danger">Delete</button>
+				</div>
+
 				<script>
 					const vscode = acquireVsCodeApi();
 					function sendCommand(action, useCache) {
@@ -251,6 +258,13 @@ async function activate(context) {
 						vscode.postMessage({
 							command: 'refresh',
 							appId: '${appId}'
+						});
+						}
+					async function deleteApp() {
+						vscode.postMessage({
+							command: 'delete',
+							appId: '${appId}',
+							appName: '${appData.name}'
 						});
 					}
 				</script>
@@ -277,6 +291,20 @@ async function activate(context) {
 								await stopApplication(message.appId);
 								vscode.window.showInformationMessage('Application stopped successfully');
 								await displayApplication(message.appId);
+								break;
+							case 'delete':
+								const userInput = await vscode.window.showInputBox({
+									prompt: `To confirm '${message.appName}' deletion, type it's name:`,
+									placeHolder: message.appName
+								});
+
+								if (userInput === message.appName) {
+									await deleteApplication(message.appId);
+									vscode.window.showInformationMessage(`Application ${message.appName} deleted successfully`);
+									showSelectionButton();
+								} else if (userInput !== undefined) {
+									vscode.window.showErrorMessage('Application name does not match. Deletion cancelled.');
+								}
 								break;
 						}
 					} catch (error) {
@@ -340,21 +368,7 @@ async function activate(context) {
 
 			if (selectedApp) {
 				const selectedAppId = apps.find(app => app.name === selectedApp).id;
-				const appData = await getApplication(selectedAppId);
-
-				let html = '<table style="width:100%">';
-				for (const [key, value] of Object.entries(appData)) {
-					html += `
-						<tr>
-							<td style="padding:8px;border-bottom:1px solid #ccc"><strong>${key}</strong></td>
-							<td style="padding:8px;border-bottom:1px solid #ccc">${JSON.stringify(value)}</td>
-						</tr>`;
-				}
-				html += '</table>';
-
-				if (currentWebview) {
-					currentWebview.webview.html = html;
-				}
+				displayApplication(selectedAppId);
 			} else {
 				showSelectionButton();
 			}
@@ -408,7 +422,111 @@ async function activate(context) {
 		vscode.window.showInformationMessage('Profile');
 	});
 
-	context.subscriptions.push(hello, applications, profile);
+	const createApp = vscode.commands.registerCommand('clever-code.createApplication', async function () {
+		try {
+			// Demander le nom
+			const name = await vscode.window.showInputBox({
+				placeHolder: 'Enter application name',
+				validateInput: text => {
+					return text && text.length > 0 ? null : 'Name is required';
+				}
+			});
+
+			if (!name) return; // L'utilisateur a annulé
+
+			// Sélectionner le type
+			const type = await vscode.window.showQuickPick(getTypes(), {
+				placeHolder: 'Select application type'
+			});
+
+			if (!type) return; // L'utilisateur a annulé
+
+			// Sélectionner la zone
+			const zone = await vscode.window.showQuickPick(getZones(), {
+				placeHolder: 'Select deployment zone'
+			});
+
+			if (!zone) return; // L'utilisateur a annulé
+
+			// Créer l'application
+			const newApp = await createApplication({ name, type, zone });
+			if (newApp && newApp.id) {
+				vscode.window.showInformationMessage(`Application ${name} created successfully!`);
+				// Afficher les détails dans le panneau
+				await displayApplication(newApp.id);
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to create application: ${error.message}`);
+		}
+	});
+
+	const installCleverTools = vscode.commands.registerCommand('clever-code.installCleverTools', async function () {
+		try {
+			// Vérifier Node.js
+			try {
+				await execAsync('node --version');
+			} catch (error) {
+				vscode.window.showErrorMessage('Install Node.js to install Clever Tools');
+				return;
+			}
+
+			// Installer Clever Tools
+			try {
+				const installResult = await execAsync('npm i -g clever-tools');
+				console.log('Clever Tools installation:', installResult);
+				vscode.window.showInformationMessage('Clever Tools installed successfully');
+
+				// Demander la connexion
+				const answer = await vscode.window.showInformationMessage(
+					'Do you want to connect to your Clever Cloud account?',
+					'Yes', 'No'
+				);
+
+				if (answer && answer.toLowerCase() === 'yes') {
+					await execAsync('clever login');
+					vscode.window.showInformationMessage('Successfully connected to Clever Cloud');
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage(`Failed to install Clever Tools: ${error.message}`);
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error: ${error.message}`);
+		}
+	});
+
+	const openConsole = vscode.commands.registerCommand('clever-code.openConsole', () => {
+		vscode.env.openExternal(vscode.Uri.parse('https://console.clever-cloud.com'));
+	});
+
+	const openProfile = vscode.commands.registerCommand('clever-code.openProfile', () => {
+		vscode.env.openExternal(vscode.Uri.parse('https://console.clever-cloud.com/users/me/information'));
+	});
+
+	const openDoc = vscode.commands.registerCommand('clever-code.openDoc', () => {
+		vscode.env.openExternal(vscode.Uri.parse('https://www.clever-cloud.com/developers/doc/'));
+	});
+
+	const login = vscode.commands.registerCommand('clever-code.login', async () => {
+		try {
+			await execAsync('clever version');
+			await execAsync('clever login');
+			vscode.window.showInformationMessage('Successfully connected to Clever Cloud');
+		} catch (error) {
+			vscode.window.showErrorMessage('Install Clever Tools to login');
+		}
+	});
+
+	context.subscriptions.push(
+		hello,
+		applications,
+		profile,
+		createApp,
+		installCleverTools,
+		openConsole,
+		openProfile,
+		openDoc,
+		login
+	);
 }
 
 // This method is called when your extension is deactivated

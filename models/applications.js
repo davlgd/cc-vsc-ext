@@ -1,4 +1,5 @@
-const { create, get, getAll, redeploy, undeploy } = require('@clevercloud/client/cjs/api/v2/application.js');
+const { create, get, getAll, redeploy, remove, undeploy } = require('@clevercloud/client/cjs/api/v2/application.js');
+const { getAvailableInstances } = require('@clevercloud/client/cjs/api/v2/product.js');
 const { sendToApi } = require('./api.js');
 
 function getTypes() {
@@ -9,13 +10,16 @@ function getZones() {
     return ['par', 'grahds', 'rbx', 'rbxhds', 'scw', 'mtl', 'sgp', 'syd', 'wsw'];
 }
 
-async function createApplication({ name, type, region, instanceType, instanceCount, gitUrl }) {
+async function createApplication({ name, type, zone }) {
 
-    if (!name || !type || !region || !instanceType || !instanceCount || !gitUrl) {
+    if (!name || !type || !zone) {
         throw new Error('All fields are required');
     }
 
     console.log('Creating application:', name);
+
+    const instanceTypes = await getAvailableInstances({}).then(sendToApi);
+    const instanceType = instanceTypes.find(i => i.variant.slug=== type);
 
     try {
         const body = {
@@ -23,13 +27,13 @@ async function createApplication({ name, type, region, instanceType, instanceCou
             name: name,
             zone: zone,
             description: name,
-            instanceType: type,
-            instanceVersion: null,
-            instanceVariant: null,
-            maxFlavor: null,
-            maxInstances: null,
-            minFlavor: null,
-            minInstances: null,
+            instanceType: instanceType.type,
+            instanceVersion: instanceType.version,
+            instanceVariant: instanceType.variant.id,
+            maxFlavor: "nano",
+            maxInstances: 1,
+            minFlavor: "nano",
+            minInstances: 1,
             instanceLifetime: 'REGULAR',
             env: null,
         };
@@ -43,8 +47,25 @@ async function createApplication({ name, type, region, instanceType, instanceCou
     }
 }
 
+async function deleteApplication(appId) {
+    if (!appId) {
+        throw new Error('Application ID is required');
+    }
+
+    console.log('Deleting application with ID:', appId);
+
+    try {
+        const response = await remove({ id: null, appId }).then(sendToApi);
+        console.log('API Response:', response);
+        return response;
+    } catch (error) {
+        console.error('Error in deleteApplication:', error);
+        throw error;
+    }
+}
+
 async function getApplications() {
-    return getAll({ id: null, instanceId: null }).then(sendToApi);
+    return (await getAll({ id: null, instanceId: null }).then(sendToApi)).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function getApplication(appId) {
@@ -100,6 +121,7 @@ async function stopApplication(appId) {
 
 module.exports = {
     createApplication,
+    deleteApplication,
     getApplication,
     getApplications,
     getTypes,

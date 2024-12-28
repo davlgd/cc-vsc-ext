@@ -38,11 +38,35 @@
       },
       {
         "command": "clever-code.applications",
-        "title": "Applications"
+        "title": "Clever Cloud: show information about an application"
       },
       {
         "command": "clever-code.profile",
-        "title": "Show Clever Cloud Profile Information"
+        "title": "Clever Cloud: show user profile"
+      },
+      {
+        "command": "clever-code.createApplication",
+        "title": "Clever Cloud: create an application"
+      },
+      {
+        "command": "clever-code.installCleverTools",
+        "title": "Clever Cloud: install Clever Tools"
+      },
+      {
+        "command": "clever-code.openConsole",
+        "title": "Clever Cloud: open Console"
+      },
+      {
+        "command": "clever-code.openProfile",
+        "title": "Clever Cloud: open user profile"
+      },
+      {
+        "command": "clever-code.openDoc",
+        "title": "Clever Cloud: open documentation"
+      },
+      {
+        "command": "clever-code.login",
+        "title": "Clever Cloud: login"
       }
     ]
   },
